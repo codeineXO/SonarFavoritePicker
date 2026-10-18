@@ -12,6 +12,9 @@ Switch between your favorite SteelSeries Sonar presets from the Windows taskbar 
 
 The icon may be inside the hidden-icons menu. Open the arrow in the notification area to find it. You can drag it onto the taskbar to keep it visible.
 
+<img width="254" height="427" alt="Screenshot 2026-10-19 022045" src="https://github.com/user-attachments/assets/537b7cc3-5c1b-4626-8e91-efe4fd57d664" />
+
+
 ## What you can do
 
 - **Pick a favorite:** All your Sonar Gaming favorite presets appear in the menu, in the same order as Sonar. You can use all nine favorite slots.
