@@ -3,7 +3,7 @@
 A small Windows notification-area app for switching **SteelSeries Sonar → Gaming** to a favorited preset.
 
 - Left-click and right-click the tray icon to open the same menu.
-- **About** at the top opens its submenu on click, with **Check for updates** and **Open on GitHub**. Hovering does not open it; explicit keyboard activation is also supported.
+- **About** at the top opens its submenu on click, showing the current app version, **Check for updates**, and **Open on GitHub**. Hovering does not open it; explicit keyboard activation is also supported.
 - Lists every Gaming favorite in Sonar's favorite-slot order (including all nine when filled).
 - Checkmark identifies the active preset; favorites and selection refresh whenever the menu opens.
 - Follows Windows app light/dark mode, with high-contrast support.

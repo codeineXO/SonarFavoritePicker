@@ -79,6 +79,8 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Clear();
         foreach (var item in oldItems) item.Dispose();
         var about = new ClickOnlyMenuItem("About");
+        about.DropDownItems.Add(new ToolStripMenuItem($"Version {GitHubUpdates.CurrentVersion.ToString(3)}") { Enabled = false });
+        about.DropDownItems.Add(new ToolStripSeparator());
         about.DropDownItems.Add("Check for updates", null, async (_, _) => await CheckForUpdatesAsync());
         about.DropDownItems.Add("Open on GitHub", null, (_, _) => OpenGitHub(GitHubUpdates.Repository));
         menu.Items.Add(about);
