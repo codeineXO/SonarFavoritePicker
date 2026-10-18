@@ -9,6 +9,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--update-test")) { SelfTests.RunUpdateCheckAsync().GetAwaiter().GetResult(); return; }
         if (args.Contains("--self-test")) { SelfTests.Run(); return; }
         if (args.Contains("--live-test")) { SelfTests.RunLiveAsync().GetAwaiter().GetResult(); return; }
         using var mutex = new Mutex(true, @"Local\SonarFavoritePicker", out var first);
@@ -153,8 +154,11 @@ internal sealed class TrayApp : ApplicationContext
         }
         catch (Exception ex)
         {
-            if (!disposed) MessageBox.Show("Could not check for updates. Check your internet connection and try again.\n\n" + ex.Message,
-                "Sonar Favorite Picker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (!disposed && MessageBox.Show("Could not complete the automatic update check.\n\n" +
+                (ex is TaskCanceledException ? "GitHub took too long to respond." : ex.Message) +
+                "\n\nOpen the latest release page in your browser?", "Sonar Favorite Picker",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                OpenGitHub(GitHubUpdates.LatestReleasePage);
         }
         finally { checkingUpdates = false; }
     }

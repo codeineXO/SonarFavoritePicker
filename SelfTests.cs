@@ -5,6 +5,22 @@ namespace SonarFavoritePicker;
 
 internal static class SelfTests
 {
+    public static async Task RunUpdateCheckAsync()
+    {
+        try
+        {
+            using var updates = new GitHubUpdates();
+            var release = await updates.GetLatestAsync();
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "update-test-results.txt"),
+                release == null ? "PASS: no published releases" : $"PASS: latest release {release.Tag}; current {GitHubUpdates.CurrentVersion.ToString(3)}; page {release.Page}");
+        }
+        catch (Exception ex)
+        {
+            Environment.ExitCode = 1;
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "update-test-results.txt"), "FAIL: " + ex);
+        }
+    }
+
     public static async Task RunLiveAsync()
     {
         var results = new List<string>();
@@ -63,25 +79,33 @@ internal static class SelfTests
             }
             // The console-style test runner has no WinForms message loop.
             SynchronizationContext.SetSynchronizationContext(null);
-            var releaseJson = """{"tag_name":"v1.0.0","html_url":"https://github.com/codeineXO/SonarFavoritePicker/releases/tag/v1.0.0"}""";
-            Require(GitHubUpdates.Parse(releaseJson).Version == new Version(1, 0, 0, 0), "Normalize release versions");
-            var newer = GitHubUpdates.Parse(releaseJson.Replace("1.0.0", "1.1.0"));
+            var releasePage = "https://github.com/codeineXO/SonarFavoritePicker/releases/tag/v1.0.0";
+            Require(GitHubUpdates.Parse(new Uri(releasePage)).Version == new Version(1, 0, 0, 0), "Normalize release versions");
+            var newer = GitHubUpdates.Parse(new Uri(releasePage.Replace("1.0.0", "1.1.0")));
             Require(newer.Version > GitHubUpdates.CurrentVersion, "Newer GitHub release comparison");
-            foreach (var invalid in new[] { releaseJson.Replace("github.com/", "example.com/"), releaseJson.Replace("v1.0.0", "not-a-version") })
+            foreach (var invalid in new[] { releasePage.Replace("github.com/", "example.com/"), releasePage.Replace("v1.0.0", "not-a-version") })
             {
-                try { GitHubUpdates.Parse(invalid); throw new Exception("Accepted invalid release"); }
+                try { GitHubUpdates.Parse(new Uri(invalid)); throw new Exception("Accepted invalid release"); }
                 catch (InvalidDataException) { }
             }
             using (var noReleases = new GitHubUpdates(new FakeRelease(HttpStatusCode.NotFound, "{}")))
                 Require(noReleases.GetLatestAsync().GetAwaiter().GetResult() == null, "No published releases");
-            using (var available = new GitHubUpdates(new FakeRelease(HttpStatusCode.OK, releaseJson)))
+            using (var available = new GitHubUpdates(new FakeRelease(HttpStatusCode.OK, releasePage)))
                 Require(available.GetLatestAsync().GetAwaiter().GetResult()?.Tag == "v1.0.0", "GitHub release response");
             using (var limited = new GitHubUpdates(new FakeRelease(HttpStatusCode.Forbidden, "{}")))
             {
                 try { limited.GetLatestAsync().GetAwaiter().GetResult(); throw new Exception("Accepted rate-limited response"); }
                 catch (HttpRequestException) { }
             }
-            results.Add("PASS: update checks, version comparison, no releases, rate limiting, release URL validation");
+            using (var emptyPage = new GitHubUpdates(new FakeRelease(HttpStatusCode.OK, GitHubUpdates.Repository.AbsoluteUri + "/releases")))
+                Require(emptyPage.GetLatestAsync().GetAwaiter().GetResult() == null, "Empty releases page redirect");
+            Require(GitHubUpdates.Parse(new Uri(releasePage.Replace("v1.0.0", "1.0.0"))).Version == new Version(1, 0, 0, 0), "Unprefixed release tag");
+            using (var limited = new GitHubUpdates(new FakeRelease((HttpStatusCode)429, "{}")))
+            {
+                try { limited.GetLatestAsync().GetAwaiter().GetResult(); throw new Exception("Accepted throttled response"); }
+                catch (HttpRequestException) { }
+            }
+            results.Add("PASS: public release redirect checks, version comparison, no releases, rate limiting, release URL validation");
             using (var icon = TrayApp.CreateIcon())
             using (var bitmap = icon.ToBitmap())
             {
@@ -155,13 +179,15 @@ internal static class SelfTests
         public bool KeyboardActivate() => ProcessDialogKey(Keys.Enter);
     }
 
-    private sealed class FakeRelease(HttpStatusCode status, string json) : HttpMessageHandler
+    private sealed class FakeRelease(HttpStatusCode status, string finalPage) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Require(request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/codeineXO/SonarFavoritePicker/releases/latest", "Correct release repository");
+            Require(request.RequestUri?.AbsoluteUri == GitHubUpdates.LatestReleasePage.AbsoluteUri, "Correct release repository");
             Require(request.Headers.UserAgent.Count > 0, "GitHub requires a User-Agent");
-            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(json) });
+            Require(request.Method == HttpMethod.Head, "Check redirects without downloading HTML or using the REST API");
+            return Task.FromResult(new HttpResponseMessage(status)
+            { RequestMessage = new HttpRequestMessage(HttpMethod.Head, status == HttpStatusCode.OK ? finalPage : request.RequestUri!.AbsoluteUri) });
         }
     }
 
