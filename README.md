@@ -1,55 +1,48 @@
 # Sonar Favorite Picker
 
-A small Windows notification-area app for switching **SteelSeries Sonar → Gaming** to a favorited preset.
+Switch between your favorite SteelSeries Sonar presets from the Windows taskbar without opening Steelseries GG app each time.
 
-- Left-click and right-click the tray icon to open the same menu.
-- **About** at the top opens its submenu on click, showing the current app version, **Check for updates**, and **Open on GitHub**. Hovering does not open it; explicit keyboard activation is also supported.
-- Lists every Gaming favorite in Sonar's favorite-slot order (including all nine when filled).
-- Checkmark identifies the active preset; favorites and selection refresh whenever the menu opens.
-- Follows Windows app light/dark mode, with high-contrast support.
-- Optional **Start silently with Windows** setting. No window or startup notification.
-- Runs as your Windows user, with a single-instance guard and no polling while idle.
+## Get started
 
-## Run
+1. [Download the latest release](https://github.com/codeineXO/SonarFavoritePicker/releases/latest) and save **SonarFavoritePicker.exe** somewhere you want to keep it.
+2. Open the file. If Windows asks you to install a required Microsoft component, choose **Download it now**, install it, and open the app again.
+3. Keep **SteelSeries GG** running with **Sonar** enabled. Make sure your audio output is **SteelSeries Sonar - Gaming** 
+4. In **Steelseries GG → Sonar → Gaming**, mark the presets you want as favorites.
+5. Click the **Sonar Favorite Picker** icon in the Windows notification area (system tray) and choose a preset.
 
-Run `dist\SonarFavoritePicker.exe`. Look for the original pale blue Sonar logo in the notification area; Windows may place it under the hidden-icons arrow. Pin it to the taskbar notification area for quick access. The menu loads before appearing so it opens at its final size without a loading-to-favorites resize.
+The icon may be inside the hidden-icons menu. Open the arrow in the notification area to find it. You can drag it onto the taskbar to keep it visible.
 
-The lightweight executable uses the shared **.NET 8 Desktop Runtime (x64)**, already installed on this PC. If it is missing, the executable's native Windows launcher shows a download prompt before the app starts. Choosing **Download it now** opens Microsoft's matching Desktop Runtime download page; run the installer and then launch the app again. No custom launcher or bundled runtime is needed. The app has no background polling or startup network requests.
+## What you can do
 
-**Check for updates** follows GitHub's public latest-release link only when selected, using a HEAD request without downloading the page or consuming the REST API quota. It compares the latest stable release tag (for example, `v1.1.0`) with the installed version and offers to open a newer release in your browser. Downloads and installation are manual. If no release exists yet, the app says so. **Open on GitHub** opens [the project repository](https://github.com/codeineXO/SonarFavoritePicker).
+- **Pick a favorite:** All your Sonar Gaming favorite presets appear in the menu, in the same order as Sonar. You can use all nine favorite slots.
+- **See what's active:** A checkmark shows the preset currently selected.
+- **Start with Windows:** Turn on **Start silently with Windows** to have the app ready whenever you sign in.
+- **Match your Windows theme:** The menu follows your light or dark appearance automatically.
 
-SteelSeries GG and Sonar must be running. Mark presets as favorites in GG → Sonar → Gaming. The menu reads these directly, so there is no second favorites list to manage. If Sonar starts later or restarts, reopen the menu or select **Refresh favorites** to reconnect.
+Click **About** at the top of the menu to check for updates, or open the GitHub page.
 
-Enable **Start silently with Windows** from the menu if desired. Keep the executable in a permanent location before enabling it. If you move it, launch the new copy and enable startup again. To uninstall, disable startup, select **Exit**, and delete the app files.
+## Updates
 
-## Build
+Choose **About → Check for updates**. If a newer version is available, the app offers to open its download page.
 
-Requires the .NET 8 SDK on Windows. Publishes a single small x64 executable without bundling the .NET runtime or debugging symbols.
+To update, choose **Exit**, download the new **SonarFavoritePicker.exe**, and replace your old copy. Then open it again. Updates are only checked when you ask.
 
-```powershell
-.\build.ps1
-```
+## Need help?
 
-Or pass a specific SDK executable with `-Dotnet C:\path\to\dotnet.exe`.
+**No favorites showing?** Make sure you've added favorites under **Sonar → Gaming** in SteelSeries GG.
 
-## Verify
+**Sonar unavailable?** Open GG, make sure Sonar is enabled, then choose **Refresh favorites**.
 
-```powershell
-Start-Process .\dist\SonarFavoritePicker.exe -ArgumentList '--self-test' -Wait
-Get-Content .\dist\self-test-results.txt
-.\verify-runtime.ps1
-```
+**Moved the app to another folder?** Open it from the new location and enable **Start silently with Windows** again if you use that option.
 
-The self-test verifies icon transparency and original color, and uses a simulated local API to verify channel filtering, favorite ordering, selection confirmation, rejecting non-Gaming presets, connection discovery and local-address restrictions. It does not change your Sonar presets. The runtime verification starts a child process with an isolated temporary .NET location and checks both missing-runtime cases and the matching Desktop Runtime x64 download URL. Test dialogs are suppressed; installed runtimes and global environment settings are unchanged.
+**Update check failed?** Use the offered link to check the release page in your browser, or [visit it here](https://github.com/codeineXO/SonarFavoritePicker/releases/latest).
 
-Optional live integration check: run with `--live-test` and read `dist\live-test-results.txt`. This briefly selects another favorite, confirms it through Sonar, and restores the original in a `finally` block. Requires two Gaming favorites and an initially selected favorite. Avoid changing favorites or closing GG during this check.
+For other problems, [report an issue on GitHub](https://github.com/codeineXO/SonarFavoritePicker/issues).
 
-Manual checks: open the tray menu using both mouse buttons, select a favorite and confirm the checkmark on reopening, add/remove a favorite in GG, change Windows app theme and reopen the menu, enable/disable startup and verify sign-in behavior.
+## Remove the app
 
-## Integration
+Turn off **Start silently with Windows**, choose **Exit**, and delete **SonarFavoritePicker.exe**.
 
-Uses GG's local `coreProps.json` → HTTPS `/subApps` discovery, then Sonar's local HTTP `/configs`, `/configs/selected`, and `PUT /configs/{id}/select`. Sonar requests are restricted to loopback; certificate validation is bypassed only for GG's local self-signed certificate. No GG database changes or account access. The optional update check uses normal HTTPS certificate validation and sends no preset information to GitHub. If an automatic check fails, it offers to open the release page in your browser.
+---
 
-This is an independent app using an undocumented API, which SteelSeries updates may change. Endpoint behavior was checked against the installed GG instance. API research reference: [SteelSeries-NET-API](https://github.com/DataNext27/SteelSeries-NET-API). Implementation is original and uses no third-party runtime packages.
-
-The Sonar icon in `assets/` is copied without recoloring from the installed SteelSeries GG `resources/overlays/sonar_logo.png`; the logo belongs to SteelSeries. `generate-icon.ps1` creates PNG-backed icon frames at multiple sizes, preserving alpha transparency and color for both the tray and executable icon. The build script runs this conversion automatically.
+An independent community project, not affiliated with SteelSeries. The Sonar name and logo belong to SteelSeries.
