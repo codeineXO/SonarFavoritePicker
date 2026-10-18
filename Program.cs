@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
@@ -29,6 +30,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly Icon icon;
     private bool busy;
     private bool disposed;
+    private bool checkingUpdates;
     private string? error;
 
     public TrayApp()
@@ -76,6 +78,11 @@ internal sealed class TrayApp : ApplicationContext
         var oldItems = menu.Items.Cast<ToolStripItem>().ToArray();
         menu.Items.Clear();
         foreach (var item in oldItems) item.Dispose();
+        var about = new ClickOnlyMenuItem("About");
+        about.DropDownItems.Add("Check for updates", null, async (_, _) => await CheckForUpdatesAsync());
+        about.DropDownItems.Add("Open on GitHub", null, (_, _) => OpenGitHub(GitHubUpdates.Repository));
+        menu.Items.Add(about);
+        menu.Items.Add(new ToolStripSeparator());
         Add("SONAR  /  GAMING", enabled: false);
         menu.Items.Add(new ToolStripSeparator());
         if (snapshot != null)
@@ -125,6 +132,37 @@ internal sealed class TrayApp : ApplicationContext
         finally { busy = false; }
     }
 
+    private async Task CheckForUpdatesAsync()
+    {
+        if (checkingUpdates || disposed) return;
+        checkingUpdates = true;
+        try
+        {
+            using var updates = new GitHubUpdates();
+            var release = await updates.GetLatestAsync();
+            if (disposed) return;
+            if (release == null)
+                MessageBox.Show("No releases have been published yet.", "Sonar Favorite Picker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else if (release.Version <= GitHubUpdates.CurrentVersion)
+                MessageBox.Show($"You're up to date (v{GitHubUpdates.CurrentVersion.ToString(3)}).", "Sonar Favorite Picker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else if (MessageBox.Show($"Version {release.Tag} is available. You have v{GitHubUpdates.CurrentVersion.ToString(3)}.\n\nOpen the release page to download it?",
+                "Sonar Favorite Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                OpenGitHub(release.Page);
+        }
+        catch (Exception ex)
+        {
+            if (!disposed) MessageBox.Show("Could not check for updates. Check your internet connection and try again.\n\n" + ex.Message,
+                "Sonar Favorite Picker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        finally { checkingUpdates = false; }
+    }
+
+    private static void OpenGitHub(Uri page)
+    {
+        try { Process.Start(new ProcessStartInfo(page.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show("Could not open your browser.\n\n" + ex.Message, "Sonar Favorite Picker"); }
+    }
+
     private static string FriendlyError(Exception ex) => ex switch
     {
         UnauthorizedAccessException => "Windows denied access to SteelSeries GG settings. Check the permissions on coreProps.json.",
@@ -161,6 +199,13 @@ internal sealed class TrayApp : ApplicationContext
         menu.Renderer = SystemInformation.HighContrast ? new ToolStripSystemRenderer() : new ToolStripProfessionalRenderer(new MenuColors(dark));
         menu.BackColor = dark ? Color.FromArgb(32, 32, 32) : SystemColors.Menu;
         menu.ForeColor = dark ? Color.FromArgb(242, 242, 242) : SystemColors.MenuText;
+        foreach (var item in menu.Items.OfType<ToolStripMenuItem>().Where(item => item.HasDropDownItems))
+        {
+            item.DropDown.Renderer = menu.Renderer;
+            item.DropDown.BackColor = menu.BackColor;
+            item.DropDown.ForeColor = menu.ForeColor;
+            item.DropDown.Font = menu.Font;
+        }
     }
 
     private void ShowMenu(Point position)

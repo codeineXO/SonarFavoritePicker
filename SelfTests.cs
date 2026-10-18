@@ -41,6 +41,47 @@ internal static class SelfTests
         var results = new List<string>();
         try
         {
+            ApplicationConfiguration.Initialize();
+            using (var root = new ContextMenuStrip())
+            using (var about = new TestAboutItem())
+            {
+                root.Items.Add(about);
+                about.DropDownItems.Add("Check for updates");
+                about.DropDownItems.Add("Open on GitHub");
+                about.ShowDropDown();
+                Require(!about.DropDown.Visible, "About must reject automatic submenu opening");
+                about.Hover();
+                about.ShowDropDown();
+                Require(!about.DropDown.Visible, "Hover must not open About");
+                about.MouseActivate();
+                Require(about.DropDown.Visible, "Click must open About submenu");
+                about.HideDropDown();
+                about.Select();
+                Require(about.KeyboardActivate() && about.DropDown.Visible, "Explicit keyboard activation must open About");
+                about.HideDropDown();
+                results.Add("PASS: About submenu rejects automatic/hover opening and opens on click");
+            }
+            // The console-style test runner has no WinForms message loop.
+            SynchronizationContext.SetSynchronizationContext(null);
+            var releaseJson = """{"tag_name":"v1.0.0","html_url":"https://github.com/codeineXO/SonarFavoritePicker/releases/tag/v1.0.0"}""";
+            Require(GitHubUpdates.Parse(releaseJson).Version == new Version(1, 0, 0, 0), "Normalize release versions");
+            var newer = GitHubUpdates.Parse(releaseJson.Replace("1.0.0", "1.1.0"));
+            Require(newer.Version > GitHubUpdates.CurrentVersion, "Newer GitHub release comparison");
+            foreach (var invalid in new[] { releaseJson.Replace("github.com/", "example.com/"), releaseJson.Replace("v1.0.0", "not-a-version") })
+            {
+                try { GitHubUpdates.Parse(invalid); throw new Exception("Accepted invalid release"); }
+                catch (InvalidDataException) { }
+            }
+            using (var noReleases = new GitHubUpdates(new FakeRelease(HttpStatusCode.NotFound, "{}")))
+                Require(noReleases.GetLatestAsync().GetAwaiter().GetResult() == null, "No published releases");
+            using (var available = new GitHubUpdates(new FakeRelease(HttpStatusCode.OK, releaseJson)))
+                Require(available.GetLatestAsync().GetAwaiter().GetResult()?.Tag == "v1.0.0", "GitHub release response");
+            using (var limited = new GitHubUpdates(new FakeRelease(HttpStatusCode.Forbidden, "{}")))
+            {
+                try { limited.GetLatestAsync().GetAwaiter().GetResult(); throw new Exception("Accepted rate-limited response"); }
+                catch (HttpRequestException) { }
+            }
+            results.Add("PASS: update checks, version comparison, no releases, rate limiting, release URL validation");
             using (var icon = TrayApp.CreateIcon())
             using (var bitmap = icon.ToBitmap())
             {
@@ -105,6 +146,23 @@ internal static class SelfTests
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new Exception(message);
+    }
+
+    private sealed class TestAboutItem() : ClickOnlyMenuItem("About")
+    {
+        public void Hover() => OnMouseEnter(EventArgs.Empty);
+        public void MouseActivate() => OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, 1, 1, 0));
+        public bool KeyboardActivate() => ProcessDialogKey(Keys.Enter);
+    }
+
+    private sealed class FakeRelease(HttpStatusCode status, string json) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Require(request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/codeineXO/SonarFavoritePicker/releases/latest", "Correct release repository");
+            Require(request.Headers.UserAgent.Count > 0, "GitHub requires a User-Agent");
+            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(json) });
+        }
     }
 
     private sealed class FakeSonar(string configs, string selected) : HttpMessageHandler

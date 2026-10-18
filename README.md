@@ -3,6 +3,7 @@
 A small Windows notification-area app for switching **SteelSeries Sonar → Gaming** to a favorited preset.
 
 - Left-click and right-click the tray icon to open the same menu.
+- **About** at the top opens its submenu on click, with **Check for updates** and **Open on GitHub**. Hovering does not open it; explicit keyboard activation is also supported.
 - Lists every Gaming favorite in Sonar's favorite-slot order (including all nine when filled).
 - Checkmark identifies the active preset; favorites and selection refresh whenever the menu opens.
 - Follows Windows app light/dark mode, with high-contrast support.
@@ -14,6 +15,8 @@ A small Windows notification-area app for switching **SteelSeries Sonar → Gami
 Run `dist\SonarFavoritePicker.exe`. Look for the original pale blue Sonar logo in the notification area; Windows may place it under the hidden-icons arrow. Pin it to the taskbar notification area for quick access. The menu loads before appearing so it opens at its final size without a loading-to-favorites resize.
 
 The lightweight executable uses the shared **.NET 8 Desktop Runtime (x64)**, already installed on this PC. If it is missing, the executable's native Windows launcher shows a download prompt before the app starts. Choosing **Download it now** opens Microsoft's matching Desktop Runtime download page; run the installer and then launch the app again. No custom launcher or bundled runtime is needed. The app has no background polling or startup network requests.
+
+**Check for updates** contacts this project's GitHub Releases API only when selected. It compares the latest stable release tag (for example, `v1.1.0`) with the installed version and offers to open a newer release in your browser. Downloads and installation are manual. If no release exists yet, the app says so. **Open on GitHub** opens [the project repository](https://github.com/codeineXO/SonarFavoritePicker).
 
 SteelSeries GG and Sonar must be running. Mark presets as favorites in GG → Sonar → Gaming. The menu reads these directly, so there is no second favorites list to manage. If Sonar starts later or restarts, reopen the menu or select **Refresh favorites** to reconnect.
 
@@ -45,7 +48,7 @@ Manual checks: open the tray menu using both mouse buttons, select a favorite an
 
 ## Integration
 
-Uses GG's local `coreProps.json` → HTTPS `/subApps` discovery, then Sonar's local HTTP `/configs`, `/configs/selected`, and `PUT /configs/{id}/select`. Requests are restricted to loopback; certificate validation is bypassed only for GG's local self-signed certificate. No GG database changes, account access, or internet requests.
+Uses GG's local `coreProps.json` → HTTPS `/subApps` discovery, then Sonar's local HTTP `/configs`, `/configs/selected`, and `PUT /configs/{id}/select`. Sonar requests are restricted to loopback; certificate validation is bypassed only for GG's local self-signed certificate. No GG database changes or account access. The optional update check uses normal HTTPS certificate validation and sends no preset information to GitHub.
 
 This is an independent app using an undocumented API, which SteelSeries updates may change. Endpoint behavior was checked against the installed GG instance. API research reference: [SteelSeries-NET-API](https://github.com/DataNext27/SteelSeries-NET-API). Implementation is original and uses no third-party runtime packages.
 
